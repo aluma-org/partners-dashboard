@@ -667,10 +667,9 @@ function buildChips() {
   metaGroup.className = 'domain-group';
   const metaHeader = document.createElement('div');
   metaHeader.className = 'domain-header';
-  metaHeader.style.cssText = 'justify-content:center;padding:12px 22px;min-width:70px;';
   metaHeader.dataset.prog = 'מטה';
   const metaLabel = document.createElement('span');
-  metaLabel.style.cssText = 'color:white;font-weight:700;font-size:0.9rem;line-height:20px;';
+  metaLabel.style.cssText = 'color:white;font-weight:700;font-size:0.85rem;height:20px;display:flex;align-items:center;';
   metaLabel.textContent = 'מטה';
   metaHeader.appendChild(metaLabel);
   metaGroup.appendChild(metaHeader);
