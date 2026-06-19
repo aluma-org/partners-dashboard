@@ -388,6 +388,7 @@ let HEADERS = [];     // column headers from Excel row 1
 let filtered = [];
 let page = 1;
 const PER = 50;
+const CIRCLE_ORDER = ['מממנים','אסטרטגיים','תפעוליים','אקוסיסטם'];
 let sortF = null, sortA = true;
 let currentDetailIdx = null;
 let editingRowNum = null; // null = new row
@@ -472,6 +473,7 @@ async function loadData() {
     buildFilters();
     buildChips();
     buildStats();
+    document.getElementById('filterSector').value = 'ממשלה';
     applyFilters();
     showToast("הנתונים נטענו בהצלחה ✓", "success");
   } catch(e) {
@@ -768,6 +770,11 @@ function applyFilters() {
     filtered.sort((a,b) => {
       const av = String(a[sortF]||''), bv = String(b[sortF]||'');
       return sortA ? av.localeCompare(bv,'he') : bv.localeCompare(av,'he');
+    });
+  } else {
+    filtered.sort((a,b) => {
+      const ai = CIRCLE_ORDER.indexOf(a['מעגל שותפות']), bi = CIRCLE_ORDER.indexOf(b['מעגל שותפות']);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
   }
   page = 1;
