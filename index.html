@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מיפוי שותפים — אלומה</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Segoe UI", Arial, sans-serif; background: #f0f4f8; color: #1a2533; direction: rtl; min-height: 100vh; }
+
+/* Auth bar */
+.auth-bar { background: #0f2540; color: white; padding: 8px 32px; display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; }
+.auth-bar .user-info { display: flex; align-items: center; gap: 10px; }
+.auth-bar .avatar { width: 28px; height: 28px; border-radius: 50%; background: #2d6a9f; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+.login-btn { background: #0078d4; color: white; border: none; border-radius: 6px; padding: 6px 16px; cursor: pointer; font-size: 0.82rem; font-family: inherit; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+.login-btn:hover { background: #106ebe; }
+.logout-btn { background: transparent; color: #a0aec0; border: 1px solid #2d3748; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: all 0.2s; }
+.logout-btn:hover { color: white; border-color: #4a5568; }
+.refresh-btn { background: transparent; color: #a0aec0; border: 1px solid #2d3748; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+.refresh-btn:hover { color: white; border-color: #4a5568; }
+.refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Header */
+.header { background: linear-gradient(135deg, #1e3a5f 0%, #2d6a9f 100%); color: white; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.2); flex-wrap: wrap; gap: 14px; }
+.header h1 { font-size: 1.7rem; font-weight: 700; }
+.header .subtitle { font-size: 0.85rem; opacity: 0.8; margin-top: 3px; }
+.stats-bar { display: flex; gap: 14px; }
+.stat { text-align: center; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 9px 16px; }
+.stat .num { font-size: 1.4rem; font-weight: 700; }
+.stat .lbl { font-size: 0.72rem; opacity: 0.85; }
+
+/* Filters */
+.filters-wrap { background: white; padding: 16px 32px; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; }
+.filters-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.search-box { position: relative; flex: 1 1 200px; }
+.search-box input { width: 100%; padding: 9px 36px 9px 12px; border: 1.5px solid #d1d9e0; border-radius: 10px; font-size: 0.9rem; font-family: inherit; direction: rtl; transition: border-color 0.2s; }
+.search-box input:focus { outline: none; border-color: #2d6a9f; box-shadow: 0 0 0 3px rgba(45,106,159,0.1); }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-group label { font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+select { padding: 8px 11px; border: 1.5px solid #d1d9e0; border-radius: 10px; font-size: 0.87rem; font-family: inherit; background: white; cursor: pointer; direction: rtl; min-width: 125px; transition: border-color 0.2s; }
+select:focus { outline: none; border-color: #2d6a9f; }
+.reset-btn { padding: 8px 14px; background: #f1f5f9; border: 1.5px solid #d1d9e0; border-radius: 10px; font-size: 0.83rem; cursor: pointer; font-family: inherit; color: #475569; transition: all 0.2s; }
+.reset-btn:hover { background: #e2e8f0; }
+.add-btn { padding: 8px 16px; background: #1e3a5f; border: none; border-radius: 10px; font-size: 0.87rem; cursor: pointer; font-family: inherit; color: white; transition: all 0.2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.add-btn:hover { background: #2d6a9f; }
+.add-btn:disabled { opacity: 0.4; cursor: default; }
+.results-count { font-size: 0.8rem; color: #64748b; padding-bottom: 8px; white-space: nowrap; }
+
+/* Main */
+.main { padding: 22px 32px; }
+
+/* Login prompt */
+.login-prompt { text-align: center; padding: 80px 20px; }
+.login-prompt .icon { font-size: 3.5rem; margin-bottom: 16px; }
+.login-prompt h2 { font-size: 1.4rem; color: #1e3a5f; margin-bottom: 8px; }
+.login-prompt p { color: #64748b; margin-bottom: 28px; }
+.login-big-btn { background: #0078d4; color: white; border: none; border-radius: 10px; padding: 13px 32px; font-size: 1rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 10px; transition: background 0.2s; }
+.login-big-btn:hover { background: #106ebe; }
+
+/* Program chips */
+.program-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip { padding: 5px 14px; border-radius: 18px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: 2px solid transparent; transition: all 0.17s; user-select: none; }
+.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+
+/* Table */
+.table-container { background: white; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+thead tr { background: #f8fafc; }
+th { padding: 11px 13px; text-align: right; font-weight: 600; color: #374151; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; cursor: pointer; user-select: none; }
+th:hover { background: #f1f5f9; }
+th.sorted { color: #2d6a9f; }
+th.no-sort { cursor: default; }
+th.no-sort:hover { background: #f8fafc; }
+td { padding: 10px 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.clickable:hover td { background: #f8fbff; }
+.row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+tr:hover .row-actions { opacity: 1; }
+.edit-btn { background: none; border: 1.5px solid #d1d9e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; color: #64748b; transition: all 0.15s; }
+.edit-btn:hover { border-color: #2d6a9f; color: #2d6a9f; background: #eff6ff; }
+
+.badge { display: inline-block; padding: 3px 9px; border-radius: 11px; font-size: 0.71rem; font-weight: 600; white-space: nowrap; }
+.b-astr { background: #dbeafe; color: #1e40af; }
+.b-mam  { background: #dcfce7; color: #166534; }
+.b-eco  { background: #fef9c3; color: #854d0e; }
+.b-taff { background: #fce7f3; color: #9d174d; }
+.b-def  { background: #f1f5f9; color: #475569; }
+.sec-tag { display: inline-block; padding: 2px 7px; border-radius: 7px; font-size: 0.7rem; background: #f1f5f9; color: #475569; white-space: nowrap; }
+.email-link { color: #2d6a9f; text-decoration: none; }
+.email-link:hover { text-decoration: underline; }
+.phone-link { color: #374151; text-decoration: none; direction: ltr; display: inline-block; }
+.trunc { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
+/* Pagination */
+.pagination { display: flex; justify-content: center; align-items: center; gap: 5px; padding: 16px; flex-wrap: wrap; }
+.pg-btn { padding: 6px 11px; border: 1.5px solid #e2e8f0; border-radius: 7px; background: white; cursor: pointer; font-size: 0.83rem; font-family: inherit; transition: all 0.17s; }
+.pg-btn:hover { border-color: #2d6a9f; color: #2d6a9f; }
+.pg-btn.active { background: #2d6a9f; color: white; border-color: #2d6a9f; }
+.pg-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* Edit Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; backdrop-filter: blur(3px); align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 18px; padding: 28px; max-width: 600px; width: 94%; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.22); animation: slideUp 0.22s ease; }
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.modal-header h2 { font-size: 1.1rem; font-weight: 700; color: #1e3a5f; }
+.modal-close { background: #f1f5f9; border: none; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1rem; color: #64748b; }
+.modal-close:hover { background: #e2e8f0; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 0.73rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; }
+.form-group input, .form-group select, .form-group textarea { padding: 9px 12px; border: 1.5px solid #d1d9e0; border-radius: 9px; font-size: 0.9rem; font-family: inherit; direction: rtl; transition: border-color 0.2s; width: 100%; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #2d6a9f; box-shadow: 0 0 0 3px rgba(45,106,159,0.1); }
+.form-group textarea { resize: vertical; min-height: 72px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-start; margin-top: 22px; padding-top: 18px; border-top: 1px solid #f1f5f9; }
+.save-btn { background: #1e3a5f; color: white; border: none; border-radius: 9px; padding: 10px 24px; font-size: 0.92rem; cursor: pointer; font-family: inherit; transition: background 0.2s; display: flex; align-items: center; gap: 7px; }
+.save-btn:hover { background: #2d6a9f; }
+.save-btn:disabled { opacity: 0.5; cursor: default; }
+.cancel-btn { background: #f1f5f9; color: #475569; border: none; border-radius: 9px; padding: 10px 20px; font-size: 0.92rem; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+.cancel-btn:hover { background: #e2e8f0; }
+.saving-indicator { font-size: 0.82rem; color: #64748b; align-self: center; }
+
+/* Detail panel */
+.detail-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; backdrop-filter: blur(3px); align-items: center; justify-content: center; }
+.detail-overlay.open { display: flex; }
+.detail-panel { background: white; border-radius: 18px; padding: 28px; max-width: 520px; width: 92%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: slideUp 0.22s ease; max-height: 82vh; overflow-y: auto; }
+.d-close { float: left; background: #f1f5f9; border: none; border-radius: 8px; padding: 5px 11px; cursor: pointer; font-size: 1rem; color: #64748b; }
+.d-close:hover { background: #e2e8f0; }
+.d-edit-btn { float: left; margin-left: 6px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 0.82rem; color: #2d6a9f; font-family: inherit; }
+.d-edit-btn:hover { background: #dbeafe; }
+.d-name { font-size: 1.1rem; font-weight: 700; margin: 10px 0 3px; }
+.d-org { font-size: 0.9rem; color: #475569; margin-bottom: 16px; }
+.d-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.d-item label { font-size: 0.68rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+.d-item .v { font-size: 0.87rem; color: #1a2533; margin-top: 3px; }
+.d-item .v a { color: #2d6a9f; text-decoration: none; }
+.d-full { grid-column: 1 / -1; }
+.d-notes { background: #fafafa; border-radius: 9px; padding: 12px; font-size: 0.85rem; color: #475569; margin-top: 13px; border-right: 3px solid #2d6a9f; }
+
+/* Toast */
+.toast { position: fixed; bottom: 28px; right: 32px; background: #1e3a5f; color: white; padding: 12px 20px; border-radius: 10px; font-size: 0.88rem; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 500; transform: translateY(20px); opacity: 0; transition: all 0.3s; pointer-events: none; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.error { background: #9f1239; }
+.toast.success { background: #065f46; }
+
+/* Loading */
+.loading-row td { text-align: center; padding: 40px; color: #94a3b8; }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: #2d6a9f; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-left: 8px; }
+.empty { text-align: center; padding: 50px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<div class="auth-bar">
+  <div id="authStatus">
+    <span style="color:#94a3b8">טוען...</span>
+  </div>
+  <div id="authActions"></div>
+</div>
+
+<div class="header">
+  <div>
+    <h1>🤝 מיפוי שותפים — אלומה</h1>
+    <div class="subtitle">מאגר שותפי הארגון לפי תכניות ומעגלים</div>
+  </div>
+  <div class="stats-bar" id="statsBar">
+    <div class="stat"><div class="num">—</div><div class="lbl">גופים</div></div>
+    <div class="stat"><div class="num">—</div><div class="lbl">אנשי קשר</div></div>
+    <div class="stat"><div class="num">—</div><div class="lbl">תכניות</div></div>
+  </div>
+</div>
+
+<div class="filters-wrap">
+  <div class="filters-row">
+    <div class="search-box">
+      <input type="text" id="search" placeholder="חיפוש לפי שם, גוף, תפקיד...">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div class="filter-group">
+      <label>תכנית</label>
+      <select id="filterProgram"><option value="">כל התכניות</option></select>
+    </div>
+    <div class="filter-group">
+      <label>מעגל שותפות</label>
+      <select id="filterCircle"><option value="">כל המעגלים</option></select>
+    </div>
+    <div class="filter-group">
+      <label>סקטור</label>
+      <select id="filterSector"><option value="">כל הסקטורים</option></select>
+    </div>
+    <button class="reset-btn" id="resetBtn">↺ נקה</button>
+    <button class="add-btn" id="addBtn" disabled>＋ שותף חדש</button>
+    <span class="results-count" id="resultsCount"></span>
+  </div>
+</div>
+
+<div class="main">
+  <div id="loginPrompt" class="login-prompt">
+    <div class="icon">🔐</div>
+    <h2>התחברות נדרשת</h2>
+    <p>התחברי עם חשבון Microsoft הארגוני כדי לטעון את נתוני השותפים</p>
+    <button class="login-big-btn" id="loginBigBtn">
+      <svg width="18" height="18" viewBox="0 0 23 23" fill="none"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#00a4ef" d="M12 0h11v11H12z"/><path fill="#7fba00" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>
+      התחבר עם Microsoft
+    </button>
+  </div>
+
+  <div id="mainContent" style="display:none">
+    <div class="program-chips" id="programChips"></div>
+    <div class="table-container">
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="מעגל שותפות">מעגל</th>
+              <th data-sort="סקטור">סקטור</th>
+              <th data-sort="שם הגוף">שם הגוף</th>
+              <th data-sort="שם איש קשר">איש קשר</th>
+              <th>תפקיד</th>
+              <th>טלפון</th>
+              <th>מייל</th>
+              <th data-sort="שם תכנית">תכנית</th>
+              <th data-sort="מחזיק הקשר באלומה">מחזיק קשר</th>
+              <th class="no-sort"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr class="loading-row"><td colspan="10">טוען נתונים... <span class="spinner"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">עריכת שותף</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>מעגל שותפות</label>
+        <select id="f-circle">
+          <option value="">בחר...</option>
+          <option>אסטרטגיים</option>
+          <option>מממנים</option>
+          <option>אקוסיסטם</option>
+          <option>תפעוליים</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>סקטור</label>
+        <select id="f-sector">
+          <option value="">בחר...</option>
+          <option>אקדמיה</option>
+          <option>ממשלתי/ציבורי</option>
+          <option>פילנתרופיה</option>
+          <option>פרטיים/מובילי דעה</option>
+          <option>שלטון מקומי</option>
+          <option>חברה אזרחית</option>
+          <option>מגזר עסקי</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>שם הגוף</label>
+        <input type="text" id="f-org">
+      </div>
+      <div class="form-group">
+        <label>שם איש קשר</label>
+        <input type="text" id="f-contact">
+      </div>
+      <div class="form-group">
+        <label>תפקיד בארגון</label>
+        <input type="text" id="f-role">
+      </div>
+      <div class="form-group">
+        <label>טלפון</label>
+        <input type="tel" id="f-phone" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label>מייל</label>
+        <input type="email" id="f-email" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label>שם תכנית</label>
+        <select id="f-program">
+          <option value="">בחר...</option>
+          <option>הישגים</option>
+          <option>הישגים להייטק</option>
+          <option>זרקור</option>
+          <option>חרדים בסיכון</option>
+          <option>טנא</option>
+          <option>תשתיות התמדה</option>
+          <option>מארג</option>
+          <option>מטה</option>
+          <option>מצפן לתעסוקה</option>
+          <option>משרתות באמונה</option>
+          <option>רואד</option>
+          <option>רוחבי</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>מחזיק הקשר באלומה</label>
+        <input type="text" id="f-holder">
+      </div>
+      <div class="form-group full">
+        <label>הערות</label>
+        <textarea id="f-notes"></textarea>
+      </div>
+      <div class="form-group full">
+        <label>אינטרס/מטרות</label>
+        <textarea id="f-interests"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="save-btn" id="saveBtn">💾 שמור לאקסל</button>
+      <button class="cancel-btn" id="cancelBtn">ביטול</button>
+      <span class="saving-indicator" id="savingIndicator"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel">
+    <button class="d-edit-btn" id="detailEditBtn">✏️ ערוך</button>
+    <button class="d-close" id="detailClose">✕</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CLIENT_ID = "e422a766-aa8a-4ce6-8490-b0a0479753bf";
+const TENANT_ID = "5f1c554d-0054-478d-b589-a30204a95a01";
+const FILE_NAME = "מיפוי שותפים - גרסת סיום.xlsx";
+const SHEET_NAME = "כל שותפי אלומה";
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+
+const CIRCLE_CLS = { 'אסטרטגיים':'b-astr','מממנים':'b-mam','אקוסיסטם':'b-eco','תפעוליים':'b-taff' };
+const PROG_COLORS = ['#1e3a5f','#0f766e','#b45309','#7c3aed','#be185d','#065f46','#9f1239','#1d4ed8','#92400e','#374151','#1e6a9f','#6d1a7c'];
+
+// MSAL setup
+const msalInstance = new msal.PublicClientApplication({
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: "https://aluma-org.github.io/partners-dashboard"
+  },
+  cache: { cacheLocation: "sessionStorage" }
+});
+
+const SCOPES = ["Files.ReadWrite", "User.Read"];
+
+let DATA = [];        // all records {rowNum, fields...}
+let HEADERS = [];     // column headers from Excel row 1
+let filtered = [];
+let page = 1;
+const PER = 50;
+let sortF = null, sortA = true;
+let currentDetailIdx = null;
+let editingRowNum = null; // null = new row
+
+// ─── Auth ───────────────────────────────────────────────
+async function getToken() {
+  const accounts = msalInstance.getAllAccounts();
+  if (!accounts.length) throw new Error("לא מחובר");
+  try {
+    const res = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    return res.accessToken;
+  } catch {
+    const res = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
+    return res.accessToken;
+  }
+}
+
+async function login() {
+  try {
+    await msalInstance.loginPopup({ scopes: SCOPES });
+    updateAuthUI();
+    await loadData();
+  } catch(e) {
+    showToast("שגיאת התחברות: " + e.message, "error");
+  }
+}
+
+function logout() {
+  msalInstance.logoutPopup();
+}
+
+function updateAuthUI() {
+  const accounts = msalInstance.getAllAccounts();
+  const loginPrompt = document.getElementById('loginPrompt');
+  const mainContent = document.getElementById('mainContent');
+  const authStatus = document.getElementById('authStatus');
+  const authActions = document.getElementById('authActions');
+  const addBtn = document.getElementById('addBtn');
+
+  if (accounts.length) {
+    const name = accounts[0].name || accounts[0].username;
+    const initials = name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    authStatus.innerHTML = `<div class="user-info"><div class="avatar">${initials}</div><span>${name}</span></div>`;
+    authActions.innerHTML = `
+      <div style="display:flex;gap:8px">
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">
+          <svg id="refreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          רענן
+        </button>
+        <button class="logout-btn" onclick="logout()">התנתק</button>
+      </div>`;
+    loginPrompt.style.display = 'none';
+    mainContent.style.display = 'block';
+    addBtn.disabled = false;
+  } else {
+    authStatus.innerHTML = '<span style="color:#94a3b8">לא מחובר</span>';
+    authActions.innerHTML = `<button class="login-btn" onclick="login()"><svg width="14" height="14" viewBox="0 0 23 23" fill="none"><path fill="#f25022" d="M0 0h11v11H0z"/><path fill="#00a4ef" d="M12 0h11v11H12z"/><path fill="#7fba00" d="M0 12h11v11H0z"/><path fill="#ffb900" d="M12 12h11v11H12z"/></svg>התחבר</button>`;
+    loginPrompt.style.display = 'block';
+    mainContent.style.display = 'none';
+    addBtn.disabled = true;
+  }
+}
+
+// ─── Graph API ───────────────────────────────────────────
+function workbookUrl() {
+  const enc = encodeURIComponent(FILE_NAME);
+  const sheet = encodeURIComponent(SHEET_NAME);
+  return `${GRAPH_BASE}/me/drive/root:/${enc}:/workbook/worksheets/${sheet}`;
+}
+
+async function loadData() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="10">טוען נתונים... <span class="spinner"></span></td></tr>';
+  try {
+    const token = await getToken();
+    const res = await fetch(`${workbookUrl()}/usedRange`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
+    const json = await res.json();
+    parseExcelData(json.values);
+    buildFilters();
+    buildChips();
+    buildStats();
+    applyFilters();
+    showToast("הנתונים נטענו בהצלחה ✓", "success");
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty">❌ שגיאה בטעינה: ${e.message}</div></td></tr>`;
+    showToast("שגיאה בטעינת הנתונים", "error");
+  }
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) btn.classList.add('spinning');
+  await loadData();
+  if (btn) btn.classList.remove('spinning');
+}
+
+function parseExcelData(values) {
+  if (!values || values.length < 2) { DATA = []; HEADERS = []; return; }
+  HEADERS = values[0].map(h => h ? String(h).trim() : '');
+  DATA = values.slice(1).map((row, i) => {
+    const rec = { _row: i + 2 }; // Excel row number (1=header, so data starts at 2)
+    HEADERS.forEach((h, j) => { rec[h] = row[j] != null ? String(row[j]).trim() : ''; });
+    return rec;
+  }).filter(r => Object.values(r).some((v, i) => i > 0 && v)); // skip fully empty rows
+}
+
+function getField(rec, field) { return rec[field] || ''; }
+
+// ─── Save to Excel ────────────────────────────────────────
+async function saveRow(rowNum, values) {
+  const token = await getToken();
+  const colCount = HEADERS.length;
+  const lastCol = String.fromCharCode(64 + colCount); // A=65
+  const address = `A${rowNum}:${lastCol}${rowNum}`;
+  const res = await fetch(`${workbookUrl()}/range(address='${address}')`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [values] })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || res.status);
+  }
+}
+
+async function appendRow(values) {
+  const token = await getToken();
+  const colCount = HEADERS.length;
+  const lastCol = String.fromCharCode(64 + colCount);
+  const newRow = DATA.length + 2; // +1 for header, +1 for next row
+  const address = `A${newRow}:${lastCol}${newRow}`;
+  const res = await fetch(`${workbookUrl()}/range(address='${address}')`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [values] })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || res.status);
+  }
+  return newRow;
+}
+
+// ─── Edit Modal ───────────────────────────────────────────
+function openEditModal(rec) {
+  editingRowNum = rec ? rec._row : null;
+  document.getElementById('modalTitle').textContent = rec ? 'עריכת שותף' : 'הוספת שותף חדש';
+  document.getElementById('f-circle').value   = rec ? getField(rec,'מעגל שותפות') : '';
+  document.getElementById('f-sector').value   = rec ? getField(rec,'סקטור') : '';
+  document.getElementById('f-org').value      = rec ? getField(rec,'שם הגוף') : '';
+  document.getElementById('f-contact').value  = rec ? getField(rec,'שם איש קשר') : '';
+  document.getElementById('f-role').value     = rec ? getField(rec,'תפקיד בארגון') : '';
+  document.getElementById('f-phone').value    = rec ? getField(rec,'טלפון') : '';
+  document.getElementById('f-email').value    = rec ? getField(rec,'מייל') : '';
+  document.getElementById('f-program').value  = rec ? getField(rec,'שם תכנית') : '';
+  document.getElementById('f-holder').value   = rec ? getField(rec,'מחזיק הקשר באלומה') : '';
+  document.getElementById('f-notes').value    = rec ? getField(rec,'הערות') : '';
+  document.getElementById('f-interests').value= rec ? getField(rec,'אינטרס/מטרות') : '';
+  document.getElementById('savingIndicator').textContent = '';
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function handleSave() {
+  const saveBtn = document.getElementById('saveBtn');
+  const indicator = document.getElementById('savingIndicator');
+  saveBtn.disabled = true;
+  indicator.textContent = 'שומר...';
+
+  // Build values array aligned to HEADERS
+  const formVals = {
+    'מעגל שותפות': document.getElementById('f-circle').value,
+    'סקטור':       document.getElementById('f-sector').value,
+    'שם הגוף':     document.getElementById('f-org').value,
+    'שם איש קשר': document.getElementById('f-contact').value,
+    'תפקיד בארגון':document.getElementById('f-role').value,
+    'טלפון':        document.getElementById('f-phone').value,
+    'מייל':          document.getElementById('f-email').value,
+    'הערות':         document.getElementById('f-notes').value,
+    'שם תכנית':    document.getElementById('f-program').value,
+    'מחזיק הקשר באלומה': document.getElementById('f-holder').value,
+    'אינטרס/מטרות': document.getElementById('f-interests').value,
+  };
+
+  const rowValues = HEADERS.map(h => formVals[h] !== undefined ? formVals[h] : '');
+
+  try {
+    if (editingRowNum) {
+      await saveRow(editingRowNum, rowValues);
+      // Update in-memory
+      const idx = DATA.findIndex(r => r._row === editingRowNum);
+      if (idx >= 0) HEADERS.forEach((h,j) => { DATA[idx][h] = rowValues[j]; });
+      showToast("✓ השינויים נשמרו באקסל", "success");
+    } else {
+      const newRow = await appendRow(rowValues);
+      const newRec = { _row: newRow };
+      HEADERS.forEach((h,j) => { newRec[h] = rowValues[j]; });
+      DATA.push(newRec);
+      showToast("✓ שותף חדש נוסף לאקסל", "success");
+    }
+    document.getElementById('editModal').classList.remove('open');
+    document.getElementById('detailOverlay').classList.remove('open');
+    rebuildFilters();
+    applyFilters();
+  } catch(e) {
+    indicator.textContent = 'שגיאה: ' + e.message;
+    showToast("שגיאה בשמירה: " + e.message, "error");
+    saveBtn.disabled = false;
+  }
+}
+
+// ─── Filters & Table ─────────────────────────────────────
+function unique(field) {
+  return [...new Set(DATA.map(r => r[field]).filter(x => x && x.trim()))].sort((a,b) => a.localeCompare(b,'he'));
+}
+
+function buildFilters() {
+  populateSelect('filterProgram', unique('שם תכנית'), 'כל התכניות');
+  populateSelect('filterCircle', unique('מעגל שותפות'), 'כל המעגלים');
+  populateSelect('filterSector', unique('סקטור'), 'כל הסקטורים');
+}
+
+function rebuildFilters() {
+  const savedP = document.getElementById('filterProgram').value;
+  const savedC = document.getElementById('filterCircle').value;
+  const savedS = document.getElementById('filterSector').value;
+  buildFilters();
+  document.getElementById('filterProgram').value = savedP;
+  document.getElementById('filterCircle').value = savedC;
+  document.getElementById('filterSector').value = savedS;
+}
+
+function populateSelect(id, values, placeholder) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  values.forEach(v => { const o = new Option(v,v); sel.add(o); });
+  sel.value = cur;
+}
+
+function buildChips() {
+  const progs = unique('שם תכנית');
+  const container = document.getElementById('programChips');
+  container.innerHTML = '';
+  const allChip = document.createElement('div');
+  allChip.className = 'chip active';
+  allChip.style.cssText = 'background:#1e3a5f;color:white;';
+  allChip.textContent = '✦ הכל';
+  allChip.dataset.prog = '';
+  container.appendChild(allChip);
+  progs.forEach((p,i) => {
+    const c = document.createElement('div');
+    c.className = 'chip';
+    const col = PROG_COLORS[i % PROG_COLORS.length];
+    c.style.cssText = `background:${col}22;color:${col};`;
+    c.textContent = p; c.dataset.prog = p; c.dataset.col = col;
+    container.appendChild(c);
+  });
+  container.addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.getElementById('filterProgram').value = chip.dataset.prog;
+    updateChips(chip.dataset.prog);
+    applyFilters();
+  });
+}
+
+function updateChips(prog) {
+  document.querySelectorAll('.chip').forEach(c => {
+    const active = c.dataset.prog === prog;
+    c.classList.toggle('active', active);
+    if (!c.dataset.col) {
+      c.style.cssText = active ? 'background:#1e3a5f;color:white;' : 'background:#1e3a5f33;color:#1e3a5f;';
+    } else {
+      const col = c.dataset.col;
+      c.style.cssText = active ? `background:${col};color:white;` : `background:${col}22;color:${col};`;
+    }
+  });
+}
+
+function buildStats() {
+  const orgs = new Set(DATA.map(r=>r['שם הגוף']).filter(Boolean)).size;
+  const progs = new Set(DATA.map(r=>r['שם תכנית']).filter(Boolean)).size;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat"><div class="num">${orgs}</div><div class="lbl">גופים</div></div>
+    <div class="stat"><div class="num">${DATA.length}</div><div class="lbl">אנשי קשר</div></div>
+    <div class="stat"><div class="num">${progs}</div><div class="lbl">תכניות</div></div>`;
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const prog = document.getElementById('filterProgram').value;
+  const circ = document.getElementById('filterCircle').value;
+  const sec  = document.getElementById('filterSector').value;
+  filtered = DATA.filter(r => {
+    if (prog && r['שם תכנית']      !== prog) return false;
+    if (circ && r['מעגל שותפות']   !== circ) return false;
+    if (sec  && r['סקטור']          !== sec)  return false;
+    if (q) {
+      const hay = [r['שם הגוף'],r['שם איש קשר'],r['תפקיד בארגון'],r['מייל'],r['מחזיק הקשר באלומה']].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (sortF) {
+    filtered.sort((a,b) => {
+      const av = String(a[sortF]||''), bv = String(b[sortF]||'');
+      return sortA ? av.localeCompare(bv,'he') : bv.localeCompare(av,'he');
+    });
+  }
+  page = 1;
+  document.getElementById('resultsCount').textContent = filtered.length + ' תוצאות';
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('tableBody');
+  const start = (page-1)*PER;
+  const rows = filtered.slice(start, start+PER);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty">🔍 לא נמצאו תוצאות</div></td></tr>';
+  } else {
+    tbody.innerHTML = rows.map((r,i) => {
+      const cls = CIRCLE_CLS[r['מעגל שותפות']] || 'b-def';
+      const phone = r['טלפון'] ? `<a class="phone-link" href="tel:${r['טלפון']}">${r['טלפון']}</a>` : '';
+      const emailVal = r['מייל'] || '';
+      const email = emailVal.includes('@') ? `<a class="email-link trunc" href="mailto:${emailVal}" title="${emailVal}">${emailVal}</a>` : '';
+      return `<tr class="clickable" data-idx="${start+i}">
+        <td><span class="badge ${cls}">${r['מעגל שותפות']||''}</span></td>
+        <td><span class="sec-tag">${r['סקטור']||''}</span></td>
+        <td><strong>${r['שם הגוף']||''}</strong></td>
+        <td>${r['שם איש קשר']||''}</td>
+        <td><span class="trunc" title="${r['תפקיד בארגון']||''}">${r['תפקיד בארגון']||''}</span></td>
+        <td>${phone}</td>
+        <td style="max-width:160px">${email}</td>
+        <td>${r['שם תכנית']||''}</td>
+        <td>${r['מחזיק הקשר באלומה']||''}</td>
+        <td><div class="row-actions"><button class="edit-btn" data-edit="${start+i}" title="ערוך">✏️</button></div></td>
+      </tr>`;
+    }).join('');
+    tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
+      tr.addEventListener('click', e => {
+        if (e.target.closest('.edit-btn')) return;
+        showDetail(+tr.dataset.idx);
+      });
+    });
+    tbody.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        openEditModal(filtered[+btn.dataset.edit]);
+      });
+    });
+  }
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(filtered.length/PER);
+  const pag = document.getElementById('pagination');
+  if (total<=1) { pag.innerHTML=''; return; }
+  const btns = [`<button class="pg-btn" id="pgPrev" ${page===1?'disabled':''}>‹</button>`];
+  for (let i=1;i<=total;i++) {
+    if (i===1||i===total||Math.abs(i-page)<=2) btns.push(`<button class="pg-btn${i===page?' active':''}" data-pg="${i}">${i}</button>`);
+    else if (Math.abs(i-page)===3) btns.push('<span style="padding:0 3px;color:#94a3b8">…</span>');
+  }
+  btns.push(`<button class="pg-btn" id="pgNext" ${page===total?'disabled':''}>›</button>`);
+  pag.innerHTML = btns.join('');
+  pag.querySelector('#pgPrev')?.addEventListener('click', ()=>goPage(page-1));
+  pag.querySelector('#pgNext')?.addEventListener('click', ()=>goPage(page+1));
+  pag.querySelectorAll('[data-pg]').forEach(b=>b.addEventListener('click',()=>goPage(+b.dataset.pg)));
+}
+
+function goPage(p) {
+  const total = Math.ceil(filtered.length/PER);
+  if (p<1||p>total) return;
+  page=p; render();
+  document.querySelector('.table-container').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ─── Detail panel ─────────────────────────────────────────
+function showDetail(idx) {
+  currentDetailIdx = idx;
+  const r = filtered[idx];
+  const cls = CIRCLE_CLS[r['מעגל שותפות']] || 'b-def';
+  const phone = r['טלפון'] ? `<a href="tel:${r['טלפון']}">${r['טלפון']}</a>` : '—';
+  const emailVal = r['מייל']||'';
+  const email = emailVal.includes('@') ? `<a href="mailto:${emailVal}">${emailVal}</a>` : (emailVal||'—');
+  document.getElementById('detailContent').innerHTML = `
+    <span class="badge ${cls}">${r['מעגל שותפות']||''}</span>
+    <div class="d-name">${r['שם איש קשר']||'—'}</div>
+    <div class="d-org">${r['שם הגוף']||''}</div>
+    <div class="d-grid">
+      <div class="d-item"><label>תפקיד</label><div class="v">${r['תפקיד בארגון']||'—'}</div></div>
+      <div class="d-item"><label>סקטור</label><div class="v">${r['סקטור']||'—'}</div></div>
+      <div class="d-item"><label>טלפון</label><div class="v">${phone}</div></div>
+      <div class="d-item"><label>מייל</label><div class="v">${email}</div></div>
+      <div class="d-item"><label>תכנית</label><div class="v">${r['שם תכנית']||'—'}</div></div>
+      <div class="d-item"><label>מחזיק קשר</label><div class="v">${r['מחזיק הקשר באלומה']||'—'}</div></div>
+      ${r['אינטרס/מטרות'] ? `<div class="d-item d-full"><label>אינטרס/מטרות</label><div class="v">${r['אינטרס/מטרות']}</div></div>` : ''}
+    </div>
+    ${r['הערות'] ? `<div class="d-notes">📝 ${r['הערות']}</div>` : ''}`;
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+// ─── Utils ────────────────────────────────────────────────
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+function resetFilters() {
+  document.getElementById('search').value='';
+  document.getElementById('filterProgram').value='';
+  document.getElementById('filterCircle').value='';
+  document.getElementById('filterSector').value='';
+  sortF=null; sortA=true;
+  document.querySelectorAll('th.sorted').forEach(t=>t.classList.remove('sorted'));
+  updateChips('');
+  applyFilters();
+}
+
+// ─── Event listeners ──────────────────────────────────────
+document.getElementById('loginBigBtn').addEventListener('click', login);
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('filterProgram').addEventListener('change', ()=>{updateChips(document.getElementById('filterProgram').value);applyFilters();});
+document.getElementById('filterCircle').addEventListener('change', applyFilters);
+document.getElementById('filterSector').addEventListener('change', applyFilters);
+document.getElementById('resetBtn').addEventListener('click', resetFilters);
+document.getElementById('addBtn').addEventListener('click', ()=>openEditModal(null));
+document.getElementById('saveBtn').addEventListener('click', handleSave);
+document.getElementById('cancelBtn').addEventListener('click', ()=>document.getElementById('editModal').classList.remove('open'));
+document.getElementById('modalClose').addEventListener('click', ()=>document.getElementById('editModal').classList.remove('open'));
+document.getElementById('detailClose').addEventListener('click', ()=>document.getElementById('detailOverlay').classList.remove('open'));
+document.getElementById('detailEditBtn').addEventListener('click', ()=>{
+  if (currentDetailIdx!==null) openEditModal(filtered[currentDetailIdx]);
+});
+document.getElementById('detailOverlay').addEventListener('click', e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
+document.getElementById('editModal').addEventListener('click', e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    document.getElementById('editModal').classList.remove('open');
+    document.getElementById('detailOverlay').classList.remove('open');
+  }
+});
+
+document.querySelectorAll('th[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const f = th.dataset.sort;
+    if(sortF===f) sortA=!sortA; else {sortF=f;sortA=true;}
+    document.querySelectorAll('th').forEach(t=>{t.classList.remove('sorted');t.textContent=t.textContent.replace(/ [↑↓]$/,'');});
+    th.classList.add('sorted');
+    th.textContent = th.textContent + (sortA?' ↑':' ↓');
+    applyFilters();
+  });
+});
+
+// ─── Init ────────────────────────────────────────────────
+(async ()=>{
+  await msalInstance.initialize();
+  await msalInstance.handleRedirectPromise();
+  updateAuthUI();
+  if (msalInstance.getAllAccounts().length) await loadData();
+})();
+</script>
+</body>
+</html>
