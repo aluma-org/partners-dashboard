@@ -66,7 +66,7 @@ select:focus { outline: none; border-color: #2d6a9f; }
 .domain-header { border-radius: 12px; padding: 10px 14px 8px; cursor: pointer; transition: all 0.18s; border: 2px solid transparent; display: flex; flex-direction: column; align-items: center; background: #1e3a5f; min-width: 130px; }
 .domain-header:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
 .domain-header.active { border-color: #60a5fa; box-shadow: 0 4px 14px rgba(0,0,0,0.25); transform: translateY(-2px); }
-.domain-logo { height: 38px; object-fit: contain; width: 100%; }
+.domain-logo { height: 20px; object-fit: contain; width: auto; max-width: 120px; }
 .domain-chips { display: flex; gap: 5px; flex-wrap: wrap; padding: 0 2px; }
 .domain-all { display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 2px solid #d1d9e0; border-radius: 12px; padding: 10px 16px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: #1e3a5f; transition: all 0.18s; align-self: flex-start; }
 .domain-all:hover { background: #1e3a5f; color: white; border-color: #1e3a5f; transform: translateY(-2px); }
@@ -663,17 +663,26 @@ function buildChips() {
     container.appendChild(group);
   });
 
-  const metaBtn = document.createElement('div');
-  metaBtn.className = 'domain-meta';
-  metaBtn.textContent = 'מטה';
-  metaBtn.dataset.prog = 'מטה';
-  container.appendChild(metaBtn);
+  const metaGroup = document.createElement('div');
+  metaGroup.className = 'domain-group';
+  const metaHeader = document.createElement('div');
+  metaHeader.className = 'domain-header';
+  metaHeader.style.cssText = 'justify-content:center;padding:12px 22px;min-width:70px;';
+  metaHeader.dataset.prog = 'מטה';
+  const metaLabel = document.createElement('span');
+  metaLabel.style.cssText = 'color:white;font-weight:700;font-size:0.9rem;line-height:20px;';
+  metaLabel.textContent = 'מטה';
+  metaHeader.appendChild(metaLabel);
+  metaGroup.appendChild(metaHeader);
+  const metaChipsRow = document.createElement('div');
+  metaChipsRow.className = 'domain-chips';
+  metaGroup.appendChild(metaChipsRow);
+  container.appendChild(metaGroup);
 
   container.addEventListener('click', e => {
     const chip   = e.target.closest('.chip');
     const header = e.target.closest('.domain-header');
     const all    = e.target.closest('.domain-all');
-    const meta   = e.target.closest('.domain-meta');
     if (chip) {
       document.getElementById('filterProgram').value = chip.dataset.prog;
       updateChips(chip.dataset.prog, null);
@@ -685,7 +694,7 @@ function buildChips() {
       document.getElementById('filterProgram').value = '';
       updateChips('', null);
       applyFilters();
-    } else if (meta) {
+    } else if (header && header.dataset.prog === 'מטה') {
       document.getElementById('filterProgram').value = 'מטה';
       updateChips('מטה', null);
       applyFilters();
