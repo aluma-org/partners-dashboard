@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<script src="./msal-browser.min.js"></script>
+<script>
+const msalInstance = new msal.PublicClientApplication({
+  auth: {
+    clientId: "e422a766-aa8a-4ce6-8490-b0a0479753bf",
+    authority: "https://login.microsoftonline.com/5f1c554d-0054-478d-b589-a30204a95a01",
+    redirectUri: "https://aluma-org.github.io/partners-dashboard/redirect.html"
+  }
+});
+msalInstance.initialize().then(() => msalInstance.handleRedirectPromise());
+</script>
+</body>
+</html>
