@@ -393,7 +393,7 @@ const msalInstance = new msal.PublicClientApplication({
   cache: { cacheLocation: "localStorage" }
 });
 
-const SCOPES = ["Files.ReadWrite", "User.Read"];
+const SCOPES = ["Files.ReadWrite", "Sites.ReadWrite.All", "User.Read"];
 
 let DATA = [];        // all records {rowNum, fields...}
 let HEADERS = [];     // column headers from Excel row 1
