@@ -388,9 +388,9 @@ const msalInstance = new msal.PublicClientApplication({
   auth: {
     clientId: CLIENT_ID,
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-    redirectUri: "https://aluma-org.github.io/partners-dashboard/redirect.html"
+    redirectUri: "https://aluma-org.github.io/partners-dashboard/"
   },
-  cache: { cacheLocation: "sessionStorage" }
+  cache: { cacheLocation: "localStorage" }
 });
 
 const SCOPES = ["Files.ReadWrite", "User.Read"];
@@ -413,23 +413,16 @@ async function getToken() {
     const res = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
     return res.accessToken;
   } catch {
-    const res = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
-    return res.accessToken;
+    await msalInstance.acquireTokenRedirect({ scopes: SCOPES });
   }
 }
 
 async function login() {
-  try {
-    await msalInstance.loginPopup({ scopes: SCOPES });
-    updateAuthUI();
-    await loadData();
-  } catch(e) {
-    showToast("שגיאת התחברות: " + e.message, "error");
-  }
+  await msalInstance.loginRedirect({ scopes: SCOPES });
 }
 
 function logout() {
-  msalInstance.logoutPopup();
+  msalInstance.logoutRedirect();
 }
 
 function updateAuthUI() {
@@ -960,9 +953,14 @@ document.querySelectorAll('th[data-sort]').forEach(th=>{
 // ─── Init ────────────────────────────────────────────────
 (async ()=>{
   await msalInstance.initialize();
-  await msalInstance.handleRedirectPromise();
-  updateAuthUI();
-  if (msalInstance.getAllAccounts().length) await loadData();
+  const redirectResult = await msalInstance.handleRedirectPromise();
+  if (redirectResult) {
+    updateAuthUI();
+    await loadData();
+  } else {
+    updateAuthUI();
+    if (msalInstance.getAllAccounts().length) await loadData();
+  }
 })();
 </script>
 </body>
