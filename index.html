@@ -205,6 +205,10 @@ tr:hover .row-actions { opacity: 1; }
       <label>סקטור</label>
       <select id="filterSector"><option value="">כל הסקטורים</option></select>
     </div>
+    <div class="filter-group">
+      <label>מחזיק קשר</label>
+      <select id="filterHolder"><option value="">כל מחזיקי הקשר</option></select>
+    </div>
     <button class="reset-btn" id="resetBtn">↺ נקה</button>
     <button class="add-btn" id="addBtn" disabled>＋ שותף חדש</button>
     <span class="results-count" id="resultsCount"></span>
@@ -629,16 +633,19 @@ function buildFilters() {
   const circlesSorted = [...circleOrder.filter(c => circlesAll.includes(c)), ...circlesAll.filter(c => !circleOrder.includes(c)).sort((a,b) => a.localeCompare(b,'he'))];
   populateSelect('filterCircle', circlesSorted, 'כל המעגלים');
   populateSelect('filterSector', unique('סקטור'), 'כל הסקטורים');
+  populateSelect('filterHolder', unique('מחזיק הקשר באלומה'), 'כל מחזיקי הקשר');
 }
 
 function rebuildFilters() {
   const savedP = document.getElementById('filterProgram').value;
   const savedC = document.getElementById('filterCircle').value;
   const savedS = document.getElementById('filterSector').value;
+  const savedH = document.getElementById('filterHolder').value;
   buildFilters();
   document.getElementById('filterProgram').value = savedP;
   document.getElementById('filterCircle').value = savedC;
   document.getElementById('filterSector').value = savedS;
+  document.getElementById('filterHolder').value = savedH;
 }
 
 function populateSelect(id, values, placeholder) {
@@ -768,10 +775,12 @@ function applyFilters() {
   const prog = document.getElementById('filterProgram').value;
   const circ = document.getElementById('filterCircle').value;
   const sec  = document.getElementById('filterSector').value;
+  const hold = document.getElementById('filterHolder').value;
   filtered = DATA.filter(r => {
     if (prog && r['שם תכנית']      !== prog) return false;
     if (circ && r['מעגל שותפות']   !== circ) return false;
     if (sec  && r['סקטור']          !== sec)  return false;
+    if (hold && r['מחזיק הקשר באלומה'] !== hold) return false;
     if (q) {
       const hay = [r['שם הגוף'],r['שם איש קשר'],r['תפקיד בארגון'],r['מייל'],r['מחזיק הקשר באלומה']].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
@@ -905,6 +914,7 @@ function resetFilters() {
   document.getElementById('filterProgram').value='';
   document.getElementById('filterCircle').value='';
   document.getElementById('filterSector').value='';
+  document.getElementById('filterHolder').value='';
   sortF=null; sortA=true;
   document.querySelectorAll('th.sorted').forEach(t=>t.classList.remove('sorted'));
   updateChips('');
@@ -917,6 +927,7 @@ document.getElementById('search').addEventListener('input', applyFilters);
 document.getElementById('filterProgram').addEventListener('change', ()=>{updateChips(document.getElementById('filterProgram').value);applyFilters();});
 document.getElementById('filterCircle').addEventListener('change', applyFilters);
 document.getElementById('filterSector').addEventListener('change', applyFilters);
+document.getElementById('filterHolder').addEventListener('change', applyFilters);
 document.getElementById('resetBtn').addEventListener('click', resetFilters);
 document.getElementById('addBtn').addEventListener('click', ()=>openEditModal(null));
 document.getElementById('saveBtn').addEventListener('click', handleSave);
