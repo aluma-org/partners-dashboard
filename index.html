@@ -332,6 +332,14 @@ tr:hover .row-actions { opacity: 1; }
         <label>אינטרס/מטרות</label>
         <textarea id="f-interests"></textarea>
       </div>
+      <div class="form-group">
+        <label>תאריך אינטראקציה אחרון</label>
+        <input type="date" id="f-lastcontact">
+      </div>
+      <div class="form-group full">
+        <label>היסטוריית תקשורת</label>
+        <textarea id="f-history" rows="4" placeholder="לדוגמה: 12/06/25 — שיחת טלפון, עדכון על תכנית X"></textarea>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="save-btn" id="saveBtn">💾 שמור לאקסל</button>
@@ -549,8 +557,10 @@ function openEditModal(rec) {
   document.getElementById('f-email').value    = rec ? getField(rec,'מייל') : '';
   document.getElementById('f-program').value  = rec ? getField(rec,'שם תכנית') : '';
   document.getElementById('f-holder').value   = rec ? getField(rec,'מחזיק הקשר באלומה') : '';
-  document.getElementById('f-notes').value    = rec ? getField(rec,'הערות') : '';
-  document.getElementById('f-interests').value= rec ? getField(rec,'אינטרס/מטרות') : '';
+  document.getElementById('f-notes').value       = rec ? getField(rec,'הערות') : '';
+  document.getElementById('f-interests').value   = rec ? getField(rec,'אינטרס/מטרות') : '';
+  document.getElementById('f-lastcontact').value = rec ? getField(rec,'תאריך אינטראקציה אחרון') : '';
+  document.getElementById('f-history').value     = rec ? getField(rec,'היסטוריית תקשורת') : '';
   document.getElementById('savingIndicator').textContent = '';
   document.getElementById('saveBtn').disabled = false;
   document.getElementById('editModal').classList.add('open');
@@ -575,6 +585,8 @@ async function handleSave() {
     'שם תכנית':    document.getElementById('f-program').value,
     'מחזיק הקשר באלומה': document.getElementById('f-holder').value,
     'אינטרס/מטרות': document.getElementById('f-interests').value,
+    'תאריך אינטראקציה אחרון': document.getElementById('f-lastcontact').value,
+    'היסטוריית תקשורת': document.getElementById('f-history').value,
   };
 
   const rowValues = HEADERS.map(h => formVals[h] !== undefined ? formVals[h] : '');
@@ -866,8 +878,17 @@ function showDetail(idx) {
       <div class="d-item"><label>תכנית</label><div class="v">${r['שם תכנית']||'—'}</div></div>
       <div class="d-item"><label>מחזיק קשר</label><div class="v">${r['מחזיק הקשר באלומה']||'—'}</div></div>
       ${r['אינטרס/מטרות'] ? `<div class="d-item d-full"><label>אינטרס/מטרות</label><div class="v">${r['אינטרס/מטרות']}</div></div>` : ''}
+      ${(() => {
+        const lc = r['תאריך אינטראקציה אחרון'];
+        if (!lc) return '';
+        const days = Math.floor((Date.now() - new Date(lc)) / 86400000);
+        const color = days > 90 ? '#dc2626' : days > 30 ? '#d97706' : '#16a34a';
+        const icon  = days > 90 ? '⚠️' : '✓';
+        return `<div class="d-item d-full"><label>אינטראקציה אחרונה</label><div class="v" style="color:${color};font-weight:600">${icon} ${lc} (לפני ${days} ימים)</div></div>`;
+      })()}
     </div>
-    ${r['הערות'] ? `<div class="d-notes">📝 ${r['הערות']}</div>` : ''}`;
+    ${r['הערות'] ? `<div class="d-notes">📝 ${r['הערות']}</div>` : ''}
+    ${r['היסטוריית תקשורת'] ? `<div class="d-notes" style="margin-top:8px;white-space:pre-wrap">📋 היסטוריית תקשורת:\n${r['היסטוריית תקשורת']}</div>` : ''}`;
   document.getElementById('detailOverlay').classList.add('open');
 }
 
