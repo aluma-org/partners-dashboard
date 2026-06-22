@@ -393,7 +393,7 @@ const msalInstance = new msal.PublicClientApplication({
   cache: { cacheLocation: "localStorage" }
 });
 
-const SCOPES = ["Files.ReadWrite", "Sites.ReadWrite.All", "User.Read"];
+const SCOPES = ["Files.ReadWrite", "User.Read"];
 
 let DATA = [];        // all records {rowNum, fields...}
 let HEADERS = [];     // column headers from Excel row 1
@@ -461,7 +461,7 @@ function updateAuthUI() {
 function workbookUrl() {
   const enc = encodeURIComponent(FILE_NAME);
   const sheet = encodeURIComponent(SHEET_NAME);
-  return `${GRAPH_BASE}/sites/alumaorgil.sharepoint.com/drive/root:/${enc}:/workbook/worksheets/${sheet}`;
+  return `${GRAPH_BASE}/me/drive/root:/${enc}:/workbook/worksheets/${sheet}`;
 }
 
 async function loadData() {
