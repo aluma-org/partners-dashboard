@@ -93,6 +93,20 @@ tr.clickable:hover td { background: #f8fbff; }
 tr:hover .row-actions { opacity: 1; }
 .edit-btn { background: none; border: 1.5px solid #d1d9e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; color: #64748b; transition: all 0.15s; }
 .edit-btn:hover { border-color: #2d6a9f; color: #2d6a9f; background: #eff6ff; }
+.delete-btn { background: none; border: 1.5px solid #d1d9e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; color: #64748b; transition: all 0.15s; }
+.delete-btn:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+.cb-col { width: 36px; }
+input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #2d6a9f; }
+.bulk-bar { display: none; align-items: center; gap: 10px; padding: 8px 16px; background: #fef2f2; border-radius: 9px; margin-bottom: 10px; }
+.bulk-bar.show { display: flex; }
+.bulk-delete-btn { background: #dc2626; color: white; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+.bulk-delete-btn:hover { background: #b91c1c; }
+.bulk-cancel-btn { background: #f1f5f9; color: #475569; border: none; border-radius: 8px; padding: 7px 14px; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+/* Autocomplete */
+.autocomplete-wrap { position: relative; }
+.autocomplete-list { position: absolute; top: 100%; right: 0; left: 0; background: white; border: 1.5px solid #2d6a9f; border-radius: 9px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 500; max-height: 200px; overflow-y: auto; }
+.autocomplete-item { padding: 8px 12px; cursor: pointer; font-size: 0.88rem; }
+.autocomplete-item:hover, .autocomplete-item.active { background: #eff6ff; color: #2d6a9f; }
 
 .badge { display: inline-block; padding: 3px 9px; border-radius: 11px; font-size: 0.71rem; font-weight: 600; white-space: nowrap; }
 .b-astr { background: #dbeafe; color: #1e40af; }
@@ -228,11 +242,17 @@ tr:hover .row-actions { opacity: 1; }
 
   <div id="mainContent" style="display:none">
     <div class="program-chips" id="programChips"></div>
+    <div class="bulk-bar" id="bulkBar">
+      <span id="bulkCount"></span>
+      <button class="bulk-delete-btn" id="bulkDeleteBtn">🗑️ מחק נבחרים</button>
+      <button class="bulk-cancel-btn" id="bulkCancelBtn">ביטול</button>
+    </div>
     <div class="table-container">
       <div style="overflow-x:auto">
         <table>
           <thead>
             <tr>
+              <th class="no-sort cb-col"><input type="checkbox" id="selectAll" title="בחר הכל"></th>
               <th data-sort="מעגל שותפות">מעגל</th>
               <th data-sort="סקטור">סקטור</th>
               <th data-sort="שם הגוף">שם הגוף</th>
@@ -288,7 +308,10 @@ tr:hover .row-actions { opacity: 1; }
       </div>
       <div class="form-group full">
         <label>שם הגוף</label>
-        <input type="text" id="f-org">
+        <div class="autocomplete-wrap">
+          <input type="text" id="f-org" autocomplete="off">
+          <div class="autocomplete-list" id="orgSuggestions" style="display:none"></div>
+        </div>
       </div>
       <div class="form-group">
         <label>שם איש קשר</label>
@@ -808,7 +831,8 @@ function render() {
       const phone = r['טלפון'] ? `<a class="phone-link" href="tel:${r['טלפון']}">${r['טלפון']}</a>` : '';
       const emailVal = r['מייל'] || '';
       const email = emailVal.includes('@') ? `<a class="email-link trunc" href="mailto:${emailVal}" title="${emailVal}">${emailVal}</a>` : '';
-      return `<tr class="clickable" data-idx="${start+i}">
+      return `<tr class="clickable" data-idx="${start+i}" data-row="${r._row}">
+        <td class="cb-col" onclick="event.stopPropagation()"><input type="checkbox" class="row-cb" data-idx="${start+i}"></td>
         <td><span class="badge ${cls}">${r['מעגל שותפות']||''}</span></td>
         <td><span class="sec-tag">${r['סקטור']||''}</span></td>
         <td><strong>${r['שם הגוף']||''}</strong></td>
@@ -818,7 +842,10 @@ function render() {
         <td style="max-width:160px">${email}</td>
         <td>${r['שם תכנית']||''}</td>
         <td>${r['מחזיק הקשר באלומה']||''}</td>
-        <td><div class="row-actions"><button class="edit-btn" data-edit="${start+i}" title="ערוך">✏️</button></div></td>
+        <td><div class="row-actions">
+          <button class="edit-btn" data-edit="${start+i}" title="ערוך">✏️</button>
+          <button class="delete-btn" data-delete="${start+i}" title="מחק">🗑️</button>
+        </div></td>
       </tr>`;
     }).join('');
     tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
@@ -833,8 +860,21 @@ function render() {
         openEditModal(filtered[+btn.dataset.edit]);
       });
     });
+    tbody.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const rec = filtered[+btn.dataset.delete];
+        if (confirm(`למחוק את ${rec['שם איש קשר']||rec['שם הגוף']||'שורה זו'}?`)) {
+          deleteRows([rec._row]);
+        }
+      });
+    });
+    tbody.querySelectorAll('.row-cb').forEach(cb => {
+      cb.addEventListener('change', updateBulkBar);
+    });
   }
   renderPagination();
+  document.getElementById('selectAll').checked = false;
 }
 
 function renderPagination() {
@@ -894,6 +934,45 @@ function showDetail(idx) {
   document.getElementById('detailOverlay').classList.add('open');
 }
 
+// ─── Delete ───────────────────────────────────────────────
+async function deleteRows(rowNums) {
+  try {
+    const token = await getToken();
+    // Delete from highest row to lowest to avoid index shifts
+    const sorted = [...rowNums].sort((a,b) => b - a);
+    for (const rowNum of sorted) {
+      const colCount = HEADERS.length;
+      const lastCol = String.fromCharCode(64 + colCount);
+      const address = `A${rowNum}:${lastCol}${rowNum}`;
+      // Clear the row content
+      await fetch(`${workbookUrl()}/range(address='${address}')`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [HEADERS.map(() => '')] })
+      });
+      DATA = DATA.filter(r => r._row !== rowNum);
+    }
+    showToast(`✓ נמחקו ${rowNums.length} רשומות`, 'success');
+    document.getElementById('bulkBar').classList.remove('show');
+    rebuildFilters();
+    applyFilters();
+    buildStats();
+  } catch(e) {
+    showToast('שגיאה במחיקה: ' + e.message, 'error');
+  }
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.row-cb:checked');
+  const bar = document.getElementById('bulkBar');
+  if (checked.length > 0) {
+    bar.classList.add('show');
+    document.getElementById('bulkCount').textContent = `${checked.length} נבחרו`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
 // ─── Utils ────────────────────────────────────────────────
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
@@ -932,6 +1011,46 @@ document.getElementById('detailEditBtn').addEventListener('click', ()=>{
 });
 document.getElementById('detailOverlay').addEventListener('click', e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
 document.getElementById('editModal').addEventListener('click', e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');});
+
+// Select all checkbox
+document.getElementById('selectAll').addEventListener('change', function() {
+  document.querySelectorAll('.row-cb').forEach(cb => { cb.checked = this.checked; });
+  updateBulkBar();
+});
+
+// Bulk delete
+document.getElementById('bulkDeleteBtn').addEventListener('click', () => {
+  const checked = document.querySelectorAll('.row-cb:checked');
+  const idxs = [...checked].map(cb => +cb.dataset.idx);
+  const rowNums = idxs.map(i => filtered[i]._row);
+  if (confirm(`למחוק ${rowNums.length} רשומות?`)) deleteRows(rowNums);
+});
+document.getElementById('bulkCancelBtn').addEventListener('click', () => {
+  document.querySelectorAll('.row-cb, #selectAll').forEach(cb => { cb.checked = false; });
+  document.getElementById('bulkBar').classList.remove('show');
+});
+
+// Autocomplete for org field
+document.getElementById('f-org').addEventListener('input', function() {
+  const val = this.value.trim();
+  const list = document.getElementById('orgSuggestions');
+  if (val.length < 3) { list.style.display = 'none'; return; }
+  const orgs = [...new Set(DATA.map(r => r['שם הגוף']).filter(Boolean))];
+  const matches = orgs.filter(o => o.includes(val)).slice(0, 8);
+  if (!matches.length) { list.style.display = 'none'; return; }
+  list.innerHTML = matches.map(o => `<div class="autocomplete-item">${o}</div>`).join('');
+  list.style.display = 'block';
+  list.querySelectorAll('.autocomplete-item').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      document.getElementById('f-org').value = item.textContent;
+      list.style.display = 'none';
+    });
+  });
+});
+document.getElementById('f-org').addEventListener('blur', () => {
+  setTimeout(() => { document.getElementById('orgSuggestions').style.display = 'none'; }, 150);
+});
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     document.getElementById('editModal').classList.remove('open');
