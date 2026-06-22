@@ -95,6 +95,8 @@ tr:hover .row-actions { opacity: 1; }
 .edit-btn:hover { border-color: #2d6a9f; color: #2d6a9f; background: #eff6ff; }
 .delete-btn { background: none; border: 1.5px solid #d1d9e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; color: #64748b; transition: all 0.15s; }
 .delete-btn:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+.clone-btn { background: none; border: 1.5px solid #d1d9e0; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; color: #64748b; transition: all 0.15s; }
+.clone-btn:hover { border-color: #059669; color: #059669; background: #ecfdf5; }
 .cb-col { width: 36px; }
 input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #2d6a9f; }
 .bulk-bar { display: none; align-items: center; gap: 10px; padding: 8px 16px; background: #fef2f2; border-radius: 9px; margin-bottom: 10px; }
@@ -565,9 +567,9 @@ async function appendRow(values) {
 }
 
 // ─── Edit Modal ───────────────────────────────────────────
-function openEditModal(rec) {
-  editingRowNum = rec ? rec._row : null;
-  document.getElementById('modalTitle').textContent = rec ? 'עריכת שותף' : 'הוספת שותף חדש';
+function openEditModal(rec, isClone) {
+  editingRowNum = (rec && !isClone) ? rec._row : null;
+  document.getElementById('modalTitle').textContent = isClone ? 'שכפול שותף — תכנית חדשה' : (rec ? 'עריכת שותף' : 'הוספת שותף חדש');
   document.getElementById('f-circle').value   = rec ? getField(rec,'מעגל שותפות') : '';
   document.getElementById('f-sector').value   = rec ? getField(rec,'סקטור') : '';
   document.getElementById('f-org').value      = rec ? getField(rec,'שם הגוף') : '';
@@ -844,6 +846,7 @@ function render() {
         <td>${r['מחזיק הקשר באלומה']||''}</td>
         <td><div class="row-actions">
           <button class="edit-btn" data-edit="${start+i}" title="ערוך">✏️</button>
+          <button class="clone-btn" data-clone="${start+i}" title="שכפל">⧉</button>
           <button class="delete-btn" data-delete="${start+i}" title="מחק">🗑️</button>
         </div></td>
       </tr>`;
@@ -858,6 +861,16 @@ function render() {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         openEditModal(filtered[+btn.dataset.edit]);
+      });
+    });
+    tbody.querySelectorAll('[data-clone]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const rec = filtered[+btn.dataset.clone];
+        const clone = { ...rec, _row: null };
+        clone['שם תכנית'] = '';
+        clone['מחזיק הקשר באלומה'] = '';
+        openEditModal(clone, true);
       });
     });
     tbody.querySelectorAll('[data-delete]').forEach(btn => {
